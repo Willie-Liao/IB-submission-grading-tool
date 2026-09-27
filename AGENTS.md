@@ -2,7 +2,7 @@
 
 This workspace is the IB MYP Physical and Health Education (PHE) grading assistant. Rubrics, grading guides, and assessment logic follow `assessment_criteria.pdf`.
 
-Three Python scripts grade student work from pydantic schemas. Step 1 reads a rubric and builds a blank task schema. Step 2 fills that schema from each student's files. Step 3 grades the filled schema and writes the comment.
+Three Python scripts grade student work from pydantic schemas. Step 1 reads a rubric and builds a blank task schema. An optional learn step fills calibration notes from graded samples. Step 2 fills that schema from each student's files. Step 3 grades the filled schema and writes the comment.
 
 ## Assessment Criteria
 
@@ -36,7 +36,7 @@ Command terms set the depth of the task. Definitions are in `assessment_criteria
 
 ## Pipeline
 
-Python 3.10+. Dependencies: `python-docx`, `PyMuPDF`, `openai`, `python-dotenv`, `pydantic`.
+Python 3.10+. Dependencies: `python-docx`, `PyMuPDF`, `openai`, `python-dotenv`, `pydantic`, `langfuse`.
 
 All three steps use MiniMax-M3 (`MINIMAX_API_KEY`, `MINIMAX_BASE_URL`, `MINIMAX_MODEL`, endpoint `https://api.minimaxi.com/v1`) at temperature 1, with thinking disabled so the reply is the JSON object. The client is OpenAI-compatible.
 
@@ -46,9 +46,11 @@ grading script/
 ├── documents.py                 # docx, text PDF, and picture PDF readers
 ├── pipeline.py                  # Prompt loading and validated LLM calls
 ├── rubric_parsing_1.py          # Step 1
-├── calibrate_grading_2.py       # Step 2: fill student answers
-├── grade_students_3.py          # Step 3: fill the comment
-└── prompts/pipeline/            # Instruction text for the three steps
+├── learn_calibration.py           # Learn calibration from graded samples
+├── calibrate_grading_2.py         # Step 2: fill student answers
+├── grade_students_3.py            # Step 3: fill the comment
+├── token_usage.py                 # Local token rollups (Langfuse usage shape)
+└── prompts/pipeline/              # Instruction text for the three steps
 ```
 
 Prompt wording lives in `grading script/prompts/pipeline/`. The system prompt is built once per run. Student names and submission content stay in the user message. Steps 2 and 3 send one warm-up call with `cache_warmup_user.md` before the parallel fan-out.
@@ -68,7 +70,7 @@ Writes `<out>/rubric_schema.json` and `<out>/task_schema.json`. It does not grad
 - If both are passed, the template wins. If neither is passed, the script exits.
 - If `task_schema.json` already exists, the script exits unless `--force` is passed. Steps 2 and 3 never overwrite that shared file.
 
-The comment skeleton is built from the rubric strands: one overall slot plus one slot per strand. Scores and comment text stay empty. `calibration_special_case` is empty for the teacher to edit before step 2. Intensity is `override`, `blend`, or `tiny_effect`. Task-level `word_count` is the required length when the task states one, otherwise null. `visual_related_submission` is true when the grader must judge a visual engagement element, such as a poster, diagram, layout, colors, or images. It is false when the task is judged from writing alone.
+The comment skeleton is built from the rubric strands: one overall slot plus one slot per strand. Scores and comment text stay empty. `grading_sample_reference` is an empty string until the teacher sets it or runs the learn step with `--samples`. `calibration_special_case` is empty for the teacher to edit before step 2, or for the learn step to fill from graded samples. Intensity is `override`, `blend`, or `tiny_effect`. Task-level `word_count` is the required length when the task states one, otherwise null. `visual_related_submission` is true when the grader must judge a visual engagement element, such as a poster, diagram, layout, colors, or images. It is false when the task is judged from writing alone.
 
 ```bash
 python "grading script/rubric_parsing_1.py" \
@@ -79,11 +81,26 @@ python "grading script/rubric_parsing_1.py" \
   --year 5
 ```
 
+### Learn calibration: `learn_calibration.py`
+
+Run after step 1 and before step 3 when graded sample folders should teach calibration notes. Each sample subfolder needs `comment.md` and either `content.json` or the same submission files step 2 reads. One MiniMax-M3 call reads every sample. Python writes `calibration_special_case` and `calibration_intensity` only onto fields that are still empty on the shared `task_schema.json`. Existing teacher notes stay as written. When `--students` is passed, the same empty slots are patched on every existing `content.json` under that class folder.
+
+- `--samples` stores the folder path in `grading_sample_reference`.
+- With no `--samples`, the script uses the path already in `task_schema.json`.
+- An empty path exits without a model call.
+
+```bash
+python "grading script/learn_calibration.py" \
+  --task-schema grade_9_B/task_schema.json \
+  --samples path/to/graded_examples \
+  --students grade_9_B
+```
+
 ### Step 2: `calibrate_grading_2.py`
 
 Merges every `.docx`, `.pdf`, `.png`, `.jpg`, `.jpeg`, and `.webp` in a student folder, in filename order. One MiniMax-M3 call fills `student_answer` on every field. Python copies the template side from the blank schema, counts words from `student_answer`, and leaves the comment skeleton empty. An empty answer keeps `word_count` null.
 
-Picture-PDF submissions use page images. Student sends are capped at 5 images. Text and images stay in document order. The call is skipped when `content.json` already exists. Progress is written to `step2_fill_checkpoints`. That folder records which files were read. It does not decide whether a student is skipped.
+Picture-PDF submissions use page images. Student sends are capped at 5 images. Text and images stay in document order. The call is skipped when `content.json` already exists. Progress is written to `step2_fill_checkpoints`. That folder records which files were read and token totals for that student's calls. It does not decide whether a student is skipped.
 
 `content.json` stores the filled task schema and a comparison that keeps the worksheet prompt apart from the student's answer. For a choice, the comparison shows the menu as template content and only the marked option as the student's answer. When `visual_related_submission` is true, the visual field describes layout, colors, images, and composition without scoring them. When it is false, the fill does not describe how the page looks. Only work for the criterion being graded goes into `student_answer`.
 
@@ -103,7 +120,9 @@ Text only. It does not open the submission files again. The system prompt holds 
 - an empty special case uses the rubric only
 - a non-empty special case with no intensity is `blend`
 
-The model returns the comment object only. Headings must match `task_schema.json`. Scores are integers from 0 to 8. Strand comments cite `student_answer`, not `template_content`. When `visual_related_submission` is true, visual engagement is judged from the layout, colors, images, and composition described in `student_answer`. When it is false, visual appearance is not scored. The script writes the comment back into `content.json` and renders `comment.md`. It does not rewrite `template_content`, `choices`, `columns`, or `student_answer`. Students who already have `comment.md` are skipped. Progress is written to `step3_grade_checkpoints`, including the overall score.
+The model returns the comment object only. Headings must match `task_schema.json`. Scores are integers from 0 to 8. Strand comments cite `student_answer`, not `template_content`. When `visual_related_submission` is true, visual engagement is judged from the layout, colors, images, and composition described in `student_answer`. When it is false, visual appearance is not scored. The script writes the comment back into `content.json` and renders `comment.md`. It does not rewrite `template_content`, `choices`, `columns`, or `student_answer`. Students who already have `comment.md` are skipped. Progress is written to `step3_grade_checkpoints`, including the overall score and token totals for that student's calls.
+
+MiniMax token usage is stored in Langfuse usage shape (`input`, `output`, `total`, `calls`). Each student checkpoint JSON includes that student's tokens for the step. The class folder also gets `token_usage.json` with per-step totals, per-student step 2 and step 3 totals, and a run total. Langfuse tracing stays off; nothing is exported. Warm-up calls count toward the step total, not toward a student row. `token_usage.json` is gitignored.
 
 Template wording is not evidence. Unselected menu options, column headers, and printed examples are not the student's writing.
 

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import sys
+import json
 import tempfile
 import unittest
 from pathlib import Path
@@ -25,6 +26,8 @@ from models import (  # noqa: E402
     AnswerGroup,
     AnswerPart,
     AnswerUpdate,
+    CalibrationIntensity,
+    CalibrationLearn,
     CommentFormat,
     CommentSlot,
     LevelNote,
@@ -37,11 +40,14 @@ from models import (  # noqa: E402
     assert_comment_matches,
     build_comment_skeleton,
     count_words,
+    dump_model,
     finalize_task_schema,
+    merge_learned_calibration,
     merge_student_answers,
     render_comment_md,
     render_comparison,
 )
+from token_usage import TokenLedger, add_usage, empty_usage  # noqa: E402
 
 
 def rubric_with_strands(*strand_ids: str) -> RubricSchema:
@@ -66,6 +72,7 @@ def rubric_with_strands(*strand_ids: str) -> RubricSchema:
 
 def game_plan_task() -> TaskSchema:
     return TaskSchema(
+        grading_sample_reference="",
         template=True,
         title="Game Creation Plan",
         word_count=None,
@@ -359,6 +366,94 @@ class SchemaTests(unittest.TestCase):
     def test_band_zero_is_not_a_descriptor(self) -> None:
         with self.assertRaises(ValidationError):
             RubricBand(band="0", descriptor="no evidence")
+
+    def test_grading_sample_reference_serializes_first(self) -> None:
+        task = game_plan_task()
+        payload = json.loads(dump_model(task))
+        self.assertEqual(list(payload.keys())[0], "grading_sample_reference")
+        self.assertEqual(payload["grading_sample_reference"], "")
+
+    def test_merge_learned_calibration_skips_teacher_note(self) -> None:
+        task = TaskSchema.model_validate(
+            {
+                "grading_sample_reference": "",
+                "template": False,
+                "parts": [
+                    {
+                        "heading": "Poster",
+                        "groups": [
+                            {
+                                "heading": "Content",
+                                "fields": [
+                                    {
+                                        "question": "Description",
+                                        "calibration_special_case": "Teacher note stays.",
+                                    },
+                                    {
+                                        "question": "Visual",
+                                        "calibration_special_case": "",
+                                    },
+                                ],
+                            }
+                        ],
+                    }
+                ],
+                "comment": {
+                    "overall": {"heading": "Overall achievement"},
+                    "strands": [{"heading": "Strand i"}],
+                },
+            }
+        )
+        learned = CalibrationLearn.model_validate(
+            {
+                "parts": [
+                    {
+                        "heading": "Poster",
+                        "groups": [
+                            {
+                                "heading": "Content",
+                                "fields": [
+                                    {
+                                        "question": "Description",
+                                        "calibration_special_case": "Model would overwrite.",
+                                        "calibration_intensity": "override",
+                                    },
+                                    {
+                                        "question": "Visual",
+                                        "calibration_special_case": "Reward clear layout.",
+                                        "calibration_intensity": "blend",
+                                    },
+                                ],
+                            }
+                        ],
+                    }
+                ]
+            }
+        )
+        updated = merge_learned_calibration(task, learned)
+        fields = task.parts[0].groups[0].fields
+        self.assertEqual(updated, 1)
+        self.assertEqual(fields[0].calibration_special_case, "Teacher note stays.")
+        self.assertEqual(fields[1].calibration_special_case, "Reward clear layout.")
+        self.assertEqual(fields[1].calibration_intensity, CalibrationIntensity.blend)
+
+    def test_token_usage_rollup(self) -> None:
+        self.assertEqual(
+            add_usage(empty_usage(), {"input": 10, "output": 5, "total": 15, "calls": 1}),
+            {"input": 10, "output": 5, "total": 15, "calls": 1},
+        )
+        with tempfile.TemporaryDirectory() as tmp:
+            ledger = TokenLedger(Path(tmp), "MiniMax-M3")
+            ledger.record("step2", {"input": 100, "output": 20, "total": 120, "calls": 1})
+            ledger.record(
+                "step2",
+                {"input": 50, "output": 10, "total": 60, "calls": 1},
+                student_folder="STUDENT_A",
+            )
+            data = json.loads((Path(tmp) / "token_usage.json").read_text(encoding="utf-8"))
+            self.assertEqual(data["steps"]["step2"]["total"], 180)
+            self.assertEqual(data["students"]["STUDENT_A"]["step2"]["total"], 60)
+            self.assertEqual(data["total"]["total"], 180)
 
 
 class DocumentTests(unittest.TestCase):

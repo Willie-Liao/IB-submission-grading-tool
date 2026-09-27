@@ -21,6 +21,7 @@ from models import (
     schema_json,
 )
 from pipeline import (
+    MINIMAX_MODEL,
     call_minimax,
     complete_model,
     fill_prompt,
@@ -28,6 +29,7 @@ from pipeline import (
     load_prompt,
     user_with_blocks,
 )
+from token_usage import TokenLedger
 
 SAMPLE_LIMIT = 5
 
@@ -52,7 +54,7 @@ def document_user_text(label: str, text: str, images: list[dict]) -> str:
     return text
 
 
-def parse_rubric(path: Path, criterion: str, year: str) -> RubricSchema:
+def parse_rubric(path: Path, criterion: str, year: str) -> tuple[RubricSchema, dict]:
     text, images = load_rubric_or_template(path)
     system = fill_prompt(
         load_prompt("step1_rubric_system.md"),
@@ -64,13 +66,13 @@ def parse_rubric(path: Path, criterion: str, year: str) -> RubricSchema:
         {"CRITERION": criterion, "YEAR": year, "DOCUMENT": document},
     )
     user_content = user_with_blocks(user, images, RUBRIC_PICTURE_PAGE_CAP)
-    rubric = complete_model(system, user_content, RubricSchema, call_minimax)
+    rubric, usage = complete_model(system, user_content, RubricSchema, call_minimax)
     rubric.assignment_overview.criterion = criterion
     rubric.assignment_overview.grade_or_year = year
-    return rubric
+    return rubric, usage
 
 
-def parse_template(path: Path, rubric: RubricSchema) -> TaskSchemaDraft:
+def parse_template(path: Path, rubric: RubricSchema) -> tuple[TaskSchemaDraft, dict]:
     text, images = load_rubric_or_template(path)
     system = fill_prompt(
         load_prompt("step1_template_system.md"),
@@ -85,7 +87,7 @@ def parse_template(path: Path, rubric: RubricSchema) -> TaskSchemaDraft:
     return complete_model(system, user_content, TaskSchemaDraft, call_minimax)
 
 
-def induce_from_students(students_dir: Path, rubric: RubricSchema) -> TaskSchemaDraft:
+def induce_from_students(students_dir: Path, rubric: RubricSchema) -> tuple[TaskSchemaDraft, dict]:
     students = list_student_dirs(students_dir)
     if not students:
         raise ValueError(f"No student submissions found in {students_dir}.")
@@ -121,16 +123,19 @@ def main() -> None:
     if task_path.exists() and not args.force:
         raise SystemExit(f"{task_path} already exists. Pass --force to replace it.")
 
+    ledger = TokenLedger(out_dir, MINIMAX_MODEL)
     print(f"Reading rubric {args.rubric}...")
-    rubric = parse_rubric(Path(args.rubric), args.criterion, args.year)
+    rubric, rubric_usage = parse_rubric(Path(args.rubric), args.criterion, args.year)
+    ledger.record("step1", rubric_usage)
     if args.template:
         print(f"Reading template {args.template}...")
-        draft = parse_template(Path(args.template), rubric)
+        draft, task_usage = parse_template(Path(args.template), rubric)
         template = True
     else:
         print(f"Inducing a task schema from up to {SAMPLE_LIMIT} submissions...")
-        draft = induce_from_students(Path(args.students), rubric)
+        draft, task_usage = induce_from_students(Path(args.students), rubric)
         template = False
+    ledger.record("step1", task_usage)
     task = finalize_task_schema(draft, rubric, template=template)
 
     out_dir.mkdir(parents=True, exist_ok=True)
@@ -139,7 +144,8 @@ def main() -> None:
     print(f"Wrote {rubric_path}")
     print(f"Wrote {task_path}")
     print(
-        "Edit calibration_special_case, calibration_intensity, and comment headings "
+        "Set grading_sample_reference or run learn_calibration.py, then edit "
+        "calibration_special_case, calibration_intensity, and comment headings "
         "in task_schema.json before running step 2."
     )
 

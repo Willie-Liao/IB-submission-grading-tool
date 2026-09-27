@@ -14,6 +14,7 @@ from openai import OpenAI, RateLimitError
 from pydantic import BaseModel, ValidationError
 
 from models import extract_json_object
+from token_usage import add_usage, usage_from_response
 
 SCRIPT_DIR = Path(__file__).resolve().parent
 PROMPTS_DIR = SCRIPT_DIR / "prompts" / "pipeline"
@@ -93,7 +94,7 @@ def strip_think_blocks(content: str) -> str:
     return re.sub(r"<think>.*?</think>", "", content, flags=re.DOTALL).strip()
 
 
-def call_minimax(messages: list[dict]) -> str:
+def call_minimax(messages: list[dict]) -> tuple[str, dict[str, int]]:
     if not MINIMAX_API_KEY:
         raise RuntimeError("MINIMAX_API_KEY is missing. Set it in .env.")
     client = OpenAI(api_key=MINIMAX_API_KEY, base_url=MINIMAX_BASE_URL)
@@ -106,32 +107,38 @@ def call_minimax(messages: list[dict]) -> str:
                 temperature=1,
                 extra_body={"thinking": {"type": "disabled"}},
             )
-            return strip_think_blocks(response.choices[0].message.content or "")
+            text = strip_think_blocks(response.choices[0].message.content or "")
+            return text, usage_from_response(response)
         except RateLimitError:
             if attempt == 5:
                 raise
             print(f"Rate limited. Retrying in {delay}s... ({attempt + 1}/6)")
             time.sleep(delay)
             delay *= 2
-    return ""
+    return "", {"input": 0, "output": 0, "total": 0, "calls": 0}
 
 
-def complete_model(system: str, user_content, model_cls: type[BaseModel], call) -> BaseModel:
+def complete_model(
+    system: str,
+    user_content,
+    model_cls: type[BaseModel],
+    call,
+) -> tuple[BaseModel, dict[str, int]]:
     """Validate one model response. On failure, repair once without changing the system prompt."""
     messages = [
         {"role": "system", "content": system},
         {"role": "user", "content": user_content},
     ]
-    raw = call(messages)
+    raw, usage = call(messages)
     try:
-        return model_cls.model_validate(extract_json_object(raw))
+        return model_cls.model_validate(extract_json_object(raw)), usage
     except (ValidationError, ValueError, TypeError) as exc:
         repair = (
             "The previous JSON failed validation:\n"
             f"{exc}\n"
             "Return only the corrected JSON object."
         )
-        repaired = call(
+        repaired, repair_usage = call(
             [
                 {"role": "system", "content": system},
                 {"role": "user", "content": user_content},
@@ -139,7 +146,8 @@ def complete_model(system: str, user_content, model_cls: type[BaseModel], call) 
                 {"role": "user", "content": repair},
             ]
         )
-        return model_cls.model_validate(extract_json_object(repaired))
+        total_usage = add_usage(usage, repair_usage)
+        return model_cls.model_validate(extract_json_object(repaired)), total_usage
 
 
 def checkpoint_path(checkpoint_dir: Path, student_name: str) -> Path:
@@ -157,6 +165,7 @@ def save_checkpoint(
     error: str | None = None,
     provider: str,
     model: str,
+    tokens: dict[str, int] | None = None,
 ) -> None:
     checkpoint_dir.mkdir(parents=True, exist_ok=True)
     payload = {
@@ -170,6 +179,8 @@ def save_checkpoint(
         "model": model,
         "thread_id": threading.current_thread().name,
     }
+    if tokens is not None:
+        payload["tokens"] = tokens
     checkpoint_path(checkpoint_dir, student_name).write_text(
         json.dumps(payload, indent=2, ensure_ascii=False),
         encoding="utf-8",

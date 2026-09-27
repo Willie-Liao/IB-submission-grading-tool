@@ -33,6 +33,7 @@ from pipeline import (
     parse_student_name,
     save_checkpoint,
 )
+from token_usage import TokenLedger
 
 print_lock = Lock()
 CONTENT_FILE = "content.json"
@@ -69,6 +70,7 @@ def grade_one(
     system_prompt: str,
     skeleton: CommentFormat,
     checkpoint_dir: Path,
+    ledger: TokenLedger,
 ) -> str:
     student_name = parse_student_name(folder.name)
     content_path = folder / CONTENT_FILE
@@ -104,7 +106,8 @@ def grade_one(
             load_prompt("step3_user.md"),
             {"STUDENT_NAME": student_name, "COMPARISON": comparison},
         )
-        comment = complete_model(system_prompt, user_text, CommentFormat, call_minimax)
+        comment, usage = complete_model(system_prompt, user_text, CommentFormat, call_minimax)
+        ledger.record("step3", usage, student_folder=folder.name)
         assert_comment_matches(comment, skeleton)
         content.task.comment = comment
         content_path.write_text(dump_model(content), encoding="utf-8")
@@ -117,6 +120,7 @@ def grade_one(
             score=comment.overall.score,
             provider="minimax",
             model=MINIMAX_MODEL,
+            tokens=usage,
         )
         print_safe(f"Graded {folder.name}: {comment.overall.score}/8")
         return "graded"
@@ -142,6 +146,7 @@ def main() -> None:
     if not students:
         raise SystemExit(f"No student submissions found in {args.students}.")
     checkpoint_dir = Path(args.students) / "step3_grade_checkpoints"
+    ledger = TokenLedger(Path(args.students), MINIMAX_MODEL)
     system_prompt = build_system_prompt(rubric, task)
     pending = [folder for folder in students if not (folder / COMMENT_FILE).exists()]
     if not pending:
@@ -150,17 +155,18 @@ def main() -> None:
 
     warmup_user = load_prompt("cache_warmup_user.md")
     print("Warming the prompt cache...")
-    call_minimax(
+    _, warmup_usage = call_minimax(
         [
             {"role": "system", "content": system_prompt},
             {"role": "user", "content": warmup_user},
         ]
     )
+    ledger.record("step3", warmup_usage)
 
     results = {"graded": 0, "skipped": 0, "failed": 0}
     with ThreadPoolExecutor(max_workers=len(pending)) as executor:
         futures = [
-            executor.submit(grade_one, folder, system_prompt, task.comment, checkpoint_dir)
+            executor.submit(grade_one, folder, system_prompt, task.comment, checkpoint_dir, ledger)
             for folder in pending
         ]
         for future in as_completed(futures):

@@ -16,7 +16,7 @@ Each fill-in question is one field:
 - A draw-a-diagram prompt is answer_kind diagram.
 - A rating grid is answer_kind table. Column headers go in columns. Printed scales such as /5 stay in template_content.
 
-Do not include a comment object. Set template to true. If the sheet states a required word count, put that integer in word_count. Otherwise word_count is null.
+Do not include a comment object. Set template to true. Leave grading_sample_reference as an empty string. If the sheet states a required word count, put that integer in word_count. Otherwise word_count is null.
 
 Set visual_related_submission to true when the grader must judge a visual engagement element, such as a poster, diagram, layout, colors, images, or how the work looks. Set it to false when the task is judged from writing alone.
 

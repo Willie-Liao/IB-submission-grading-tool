@@ -10,3 +10,5 @@ video_grading/
 # Student submissions, per-student outputs, and checkpoint logs.
 # Rubric and task schema files at a unit folder's root can still be tracked.
 E6/*/
+token_usage.json
+**/token_usage.json

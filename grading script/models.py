@@ -88,6 +88,7 @@ class CommentFormat(BaseModel):
 class TaskSchema(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
+    grading_sample_reference: str = ""
     template: bool
     title: str = ""
     parts: list[Part]
@@ -101,6 +102,7 @@ class TaskSchemaDraft(BaseModel):
 
     model_config = ConfigDict(extra="ignore")
 
+    grading_sample_reference: str = ""
     template: bool = False
     title: str = ""
     parts: list[Part]
@@ -135,6 +137,36 @@ class AnswerFill(BaseModel):
     model_config = ConfigDict(extra="ignore")
 
     parts: list[AnswerPart]
+
+
+class CalibrationFieldLearn(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+
+    question: str
+    calibration_special_case: str = ""
+    calibration_intensity: CalibrationIntensity | None = None
+
+
+class CalibrationGroupLearn(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+
+    heading: str
+    fields: list[CalibrationFieldLearn]
+
+
+class CalibrationPartLearn(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+
+    heading: str
+    groups: list[CalibrationGroupLearn]
+
+
+class CalibrationLearn(BaseModel):
+    """Learn step response. Only calibration fields are merged onto the task schema."""
+
+    model_config = ConfigDict(extra="ignore")
+
+    parts: list[CalibrationPartLearn]
 
 
 class StudentContent(BaseModel):
@@ -332,6 +364,7 @@ def finalize_task_schema(
     if not draft.parts:
         raise ValueError("Task schema has no parts.")
     task = TaskSchema(
+        grading_sample_reference=draft.grading_sample_reference,
         template=template,
         title=draft.title,
         parts=draft.parts,
@@ -393,6 +426,49 @@ def merge_student_answers(blank: TaskSchema, filled: AnswerFill) -> TaskSchema:
                 field.word_count = count_words(field.student_answer)
     task.comment = blank.comment.model_copy(deep=True)
     return task
+
+
+def merge_learned_calibration(task: TaskSchema, learned: CalibrationLearn) -> int:
+    """Copy learned calibration onto empty field slots. Returns the number of fields updated."""
+    if len(task.parts) != len(learned.parts):
+        raise ValueError(
+            f"Expected {len(task.parts)} parts, got {len(learned.parts)}."
+        )
+    updated = 0
+    for part, part_learn in zip(task.parts, learned.parts):
+        if part.heading != part_learn.heading:
+            raise ValueError(
+                f"Part heading {part_learn.heading!r} does not match {part.heading!r}."
+            )
+        if len(part.groups) != len(part_learn.groups):
+            raise ValueError(
+                f"Part {part.heading!r}: expected {len(part.groups)} groups, "
+                f"got {len(part_learn.groups)}."
+            )
+        for group, group_learn in zip(part.groups, part_learn.groups):
+            if group.heading != group_learn.heading:
+                raise ValueError(
+                    f"Group heading {group_learn.heading!r} does not match {group.heading!r}."
+                )
+            if len(group.fields) != len(group_learn.fields):
+                raise ValueError(
+                    f"Group {group.heading!r}: expected {len(group.fields)} fields, "
+                    f"got {len(group_learn.fields)}."
+                )
+            for field, field_learn in zip(group.fields, group_learn.fields):
+                if field.question != field_learn.question:
+                    raise ValueError(
+                        f"Question {field_learn.question!r} does not match {field.question!r}."
+                    )
+                if field.calibration_special_case.strip():
+                    continue
+                note = field_learn.calibration_special_case.strip()
+                if not note:
+                    continue
+                field.calibration_special_case = note
+                field.calibration_intensity = field_learn.calibration_intensity
+                updated += 1
+    return updated
 
 
 def render_comparison(task: TaskSchema, *, include_grading_details: bool = False) -> str:
