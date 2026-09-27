@@ -145,7 +145,7 @@ def main() -> None:
     print(f"Wrote {task_path}")
     print(
         "Set grading_sample_reference or run learn_calibration.py, then edit "
-        "calibration_special_case, calibration_intensity, and comment headings "
+        "calibration_notes and comment headings "
         "in task_schema.json before running step 2."
     )
 

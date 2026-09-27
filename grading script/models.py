@@ -7,7 +7,7 @@ import re
 from enum import Enum
 from typing import Any
 
-from pydantic import BaseModel, ConfigDict, Field, field_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 DESCRIPTOR_BANDS = {"1-2", "3-4", "5-6", "7-8"}
 OVERALL_HEADING = "Overall achievement"
@@ -19,12 +19,39 @@ class CalibrationIntensity(str, Enum):
     tiny_effect = "tiny_effect"
 
 
+class CalibrationNote(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    note: str = ""
+    intensity: CalibrationIntensity | None = None
+
+
+def _lift_legacy_calibration(data: dict) -> dict:
+    """Convert calibration_special_case to calibration_notes when loading JSON."""
+    notes = data.get("calibration_notes")
+    legacy = (data.get("calibration_special_case") or "").strip()
+    legacy_intensity = data.get("calibration_intensity")
+    if legacy:
+        if not notes:
+            data["calibration_notes"] = [{"note": legacy, "intensity": legacy_intensity}]
+    if "calibration_notes" not in data:
+        data["calibration_notes"] = []
+    data.pop("calibration_special_case", None)
+    data.pop("calibration_intensity", None)
+    return data
+
+
 class AnswerKind(str, Enum):
     text = "text"
     choice = "choice"
     list = "list"
     table = "table"
     diagram = "diagram"
+
+
+class CommentLength(str, Enum):
+    concise = "concise"
+    expounded = "expounded"
 
 
 class SectionField(BaseModel):
@@ -38,9 +65,35 @@ class SectionField(BaseModel):
     columns: list[str] = Field(default_factory=list)
     optional: bool = False
     repeatable: bool = False
-    calibration_special_case: str = ""
-    calibration_intensity: CalibrationIntensity | None = None
+    calibration_notes: list[CalibrationNote] = Field(default_factory=list)
     word_count: int | None = None
+
+    @model_validator(mode="before")
+    @classmethod
+    def normalize_calibration(cls, data: Any) -> Any:
+        if isinstance(data, dict):
+            return _lift_legacy_calibration(data)
+        return data
+
+
+def field_has_calibration(field: SectionField) -> bool:
+    return any(item.note.strip() for item in field.calibration_notes)
+
+
+def calibration_lines(field: SectionField) -> list[str]:
+    lines: list[str] = []
+    for index, item in enumerate(field.calibration_notes, start=1):
+        text = item.note.strip()
+        if not text:
+            continue
+        intensity = (
+            item.intensity.value
+            if item.intensity
+            else CalibrationIntensity.blend.value
+        )
+        lines.append(f"calibration note {index}: {text}")
+        lines.append(f"calibration_intensity: {intensity}")
+    return lines
 
 
 class SectionGroup(BaseModel):
@@ -94,6 +147,7 @@ class TaskSchema(BaseModel):
     parts: list[Part]
     word_count: int | None = None
     visual_related_submission: bool = False
+    comment_length: CommentLength = CommentLength.concise
     comment: CommentFormat
 
 
@@ -108,6 +162,7 @@ class TaskSchemaDraft(BaseModel):
     parts: list[Part]
     word_count: int | None = None
     visual_related_submission: bool = False
+    comment_length: CommentLength = CommentLength.concise
 
 
 class AnswerUpdate(BaseModel):
@@ -139,12 +194,25 @@ class AnswerFill(BaseModel):
     parts: list[AnswerPart]
 
 
+class CalibrationNoteLearn(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+
+    note: str = ""
+    intensity: CalibrationIntensity | None = None
+
+
 class CalibrationFieldLearn(BaseModel):
     model_config = ConfigDict(extra="ignore")
 
     question: str
-    calibration_special_case: str = ""
-    calibration_intensity: CalibrationIntensity | None = None
+    calibration_notes: list[CalibrationNoteLearn] = Field(default_factory=list)
+
+    @model_validator(mode="before")
+    @classmethod
+    def normalize_calibration(cls, data: Any) -> Any:
+        if isinstance(data, dict):
+            return _lift_legacy_calibration(data)
+        return data
 
 
 class CalibrationGroupLearn(BaseModel):
@@ -370,6 +438,7 @@ def finalize_task_schema(
         parts=draft.parts,
         word_count=draft.word_count,
         visual_related_submission=submission_needs_visual(draft, rubric),
+        comment_length=draft.comment_length,
         comment=build_comment_skeleton(rubric),
     )
     for part in task.parts:
@@ -383,8 +452,7 @@ def finalize_task_schema(
             for field in group.fields:
                 field.student_answer = ""
                 field.word_count = None
-                field.calibration_special_case = ""
-                field.calibration_intensity = None
+                field.calibration_notes = []
                 if not template:
                     field.template_content = ""
     return task
@@ -460,13 +528,16 @@ def merge_learned_calibration(task: TaskSchema, learned: CalibrationLearn) -> in
                     raise ValueError(
                         f"Question {field_learn.question!r} does not match {field.question!r}."
                     )
-                if field.calibration_special_case.strip():
+                if field_has_calibration(field):
                     continue
-                note = field_learn.calibration_special_case.strip()
-                if not note:
+                learned_notes = [
+                    CalibrationNote(note=item.note.strip(), intensity=item.intensity)
+                    for item in field_learn.calibration_notes
+                    if item.note.strip()
+                ]
+                if not learned_notes:
                     continue
-                field.calibration_special_case = note
-                field.calibration_intensity = field_learn.calibration_intensity
+                field.calibration_notes = learned_notes
                 updated += 1
     return updated
 
@@ -496,16 +567,7 @@ def render_comparison(task: TaskSchema, *, include_grading_details: bool = False
                 if include_grading_details:
                     shown = "null" if field.word_count is None else str(field.word_count)
                     lines.append(f"word_count: {shown}")
-                    if field.calibration_special_case.strip():
-                        intensity = (
-                            field.calibration_intensity.value
-                            if field.calibration_intensity
-                            else CalibrationIntensity.blend.value
-                        )
-                        lines.append(
-                            f"calibration_special_case: {field.calibration_special_case}"
-                        )
-                        lines.append(f"calibration_intensity: {intensity}")
+                    lines.extend(calibration_lines(field))
                 blocks.append("\n".join(lines))
     return "\n\n".join(blocks)
 
@@ -536,9 +598,26 @@ def assert_comment_matches(filled: CommentFormat, skeleton: CommentFormat) -> No
             raise ValueError(f"max_score does not match the skeleton for {got.heading}.")
 
 
-def render_comment_md(student_name: str, comment: CommentFormat) -> str:
+def render_comment_md(
+    student_name: str,
+    comment: CommentFormat,
+    *,
+    comment_length: CommentLength = CommentLength.expounded,
+) -> str:
     if comment.overall.score is None:
         raise ValueError("Overall score is empty.")
+    if comment_length == CommentLength.concise:
+        parts = [comment.strengths.strip(), comment.improvements.strip()]
+        paragraph = " ".join(part for part in parts if part)
+        if not paragraph:
+            raise ValueError("Concise comment is empty.")
+        lines = [
+            f"{student_name}, your overall achievement score: {comment.overall.score}/{comment.overall.max_score}",
+            "",
+            paragraph,
+            "",
+        ]
+        return "\n".join(lines)
     lines = [
         f"{student_name}, your overall achievement score: {comment.overall.score}/{comment.overall.max_score}",
         "",

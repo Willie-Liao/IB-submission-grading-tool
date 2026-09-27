@@ -8,7 +8,7 @@ Each fill-in question is one field:
 - template_content is the printed prompt, including underscore blanks and parenthetical examples.
 - student_answer is an empty string.
 - word_count is null.
-- calibration_special_case is an empty string and calibration_intensity is null.
+- calibration_notes is an empty list on every field.
 - answer_kind is text, choice, list, table, or diagram.
 - A circle-or-highlight menu is choice. Put the options in choices. The menu is not the student's answer.
 - A section the sheet says the student may skip is optional true.
@@ -16,7 +16,7 @@ Each fill-in question is one field:
 - A draw-a-diagram prompt is answer_kind diagram.
 - A rating grid is answer_kind table. Column headers go in columns. Printed scales such as /5 stay in template_content.
 
-Do not include a comment object. Set template to true. Leave grading_sample_reference as an empty string. If the sheet states a required word count, put that integer in word_count. Otherwise word_count is null.
+Do not include a comment object. Set template to true. Leave grading_sample_reference as an empty string. Set comment_length to concise unless the task clearly needs expounded feedback. If the sheet states a required word count, put that integer in word_count. Otherwise word_count is null.
 
 Set visual_related_submission to true when the grader must judge a visual engagement element, such as a poster, diagram, layout, colors, images, or how the work looks. Set it to false when the task is judged from writing alone.
 

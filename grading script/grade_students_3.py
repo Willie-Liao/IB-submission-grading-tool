@@ -14,6 +14,7 @@ from threading import Lock
 
 from models import (
     CommentFormat,
+    CommentLength,
     RubricSchema,
     StudentContent,
     TaskSchema,
@@ -53,6 +54,12 @@ def parse_args() -> argparse.Namespace:
     return parser.parse_args()
 
 
+def comment_length_rules(length: CommentLength) -> str:
+    if length == CommentLength.expounded:
+        return load_prompt("step3_comment_length_expounded.md")
+    return load_prompt("step3_comment_length_concise.md")
+
+
 def build_system_prompt(rubric: RubricSchema, task: TaskSchema) -> str:
     return fill_prompt(
         load_prompt("step3_system.md"),
@@ -61,6 +68,7 @@ def build_system_prompt(rubric: RubricSchema, task: TaskSchema) -> str:
             "COMMENT_SKELETON": dump_model(task.comment),
             "COMMENT_JSON_SCHEMA": schema_json(CommentFormat),
             "VISUAL_RELATED": "true" if task.visual_related_submission else "false",
+            "COMMENT_LENGTH_RULES": comment_length_rules(task.comment_length),
         },
     )
 
@@ -111,7 +119,14 @@ def grade_one(
         assert_comment_matches(comment, skeleton)
         content.task.comment = comment
         content_path.write_text(dump_model(content), encoding="utf-8")
-        comment_path.write_text(render_comment_md(student_name, comment), encoding="utf-8")
+        comment_path.write_text(
+            render_comment_md(
+                student_name,
+                comment,
+                comment_length=content.task.comment_length,
+            ),
+            encoding="utf-8",
+        )
         save_checkpoint(
             checkpoint_dir,
             folder.name,

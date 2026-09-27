@@ -29,6 +29,7 @@ from models import (  # noqa: E402
     CalibrationIntensity,
     CalibrationLearn,
     CommentFormat,
+    CommentLength,
     CommentSlot,
     LevelNote,
     RubricBand,
@@ -252,7 +253,7 @@ class SchemaTests(unittest.TestCase):
             improvements="Explain why the rule change helps.",
         )
         assert_comment_matches(matched, skeleton)
-        rendered = render_comment_md("Jun", matched)
+        rendered = render_comment_md("Jun", matched, comment_length=CommentLength.expounded)
         self.assertIn("Jun, your overall achievement score: 6/8", rendered)
         self.assertIn("Strand i: 6/8", rendered)
         self.assertIn("What you did well: Clear winning condition.", rendered)
@@ -291,7 +292,7 @@ class SchemaTests(unittest.TestCase):
         field = task.parts[0].groups[0].fields[0]
         self.assertEqual(field.student_answer, "")
         self.assertIsNone(field.word_count)
-        self.assertEqual(field.calibration_special_case, "")
+        self.assertEqual(field.calibration_notes, [])
         self.assertEqual(field.template_content, "Name of your game")
         self.assertEqual(task.comment.overall.heading, "Overall achievement")
         self.assertEqual([slot.heading for slot in task.comment.strands], ["Strand i", "Strand ii"])
@@ -372,6 +373,43 @@ class SchemaTests(unittest.TestCase):
         payload = json.loads(dump_model(task))
         self.assertEqual(list(payload.keys())[0], "grading_sample_reference")
         self.assertEqual(payload["grading_sample_reference"], "")
+        self.assertEqual(payload["comment_length"], "concise")
+
+    def test_comment_length_default_is_concise(self) -> None:
+        task = TaskSchema.model_validate(
+            {
+                "template": False,
+                "parts": [
+                    {
+                        "heading": "A",
+                        "groups": [
+                            {
+                                "heading": "B",
+                                "fields": [{"question": "Q"}],
+                            }
+                        ],
+                    }
+                ],
+                "comment": {
+                    "overall": {"heading": "Overall achievement"},
+                    "strands": [],
+                },
+            }
+        )
+        self.assertEqual(task.comment_length.value, "concise")
+
+    def test_concise_comment_md_omits_strands_and_scores(self) -> None:
+        comment = CommentFormat(
+            overall=CommentSlot(heading="Overall achievement", score=4, text=""),
+            strands=[CommentSlot(heading="Strand i", score=3, text="")],
+            strengths="Clear value choice.",
+            improvements="Add more examples.",
+        )
+        rendered = render_comment_md("Sam", comment, comment_length=CommentLength.concise)
+        self.assertIn("Sam, your overall achievement score: 4/8", rendered)
+        self.assertIn("Clear value choice. Add more examples.", rendered)
+        self.assertNotIn("What you did well", rendered)
+        self.assertNotIn("Strand i:", rendered)
 
     def test_merge_learned_calibration_skips_teacher_note(self) -> None:
         task = TaskSchema.model_validate(
@@ -387,11 +425,13 @@ class SchemaTests(unittest.TestCase):
                                 "fields": [
                                     {
                                         "question": "Description",
-                                        "calibration_special_case": "Teacher note stays.",
+                                        "calibration_notes": [
+                                            {"note": "Teacher note stays.", "intensity": "blend"}
+                                        ],
                                     },
                                     {
                                         "question": "Visual",
-                                        "calibration_special_case": "",
+                                        "calibration_notes": [],
                                     },
                                 ],
                             }
@@ -415,13 +455,21 @@ class SchemaTests(unittest.TestCase):
                                 "fields": [
                                     {
                                         "question": "Description",
-                                        "calibration_special_case": "Model would overwrite.",
-                                        "calibration_intensity": "override",
+                                        "calibration_notes": [
+                                            {
+                                                "note": "Model would overwrite.",
+                                                "intensity": "override",
+                                            }
+                                        ],
                                     },
                                     {
                                         "question": "Visual",
-                                        "calibration_special_case": "Reward clear layout.",
-                                        "calibration_intensity": "blend",
+                                        "calibration_notes": [
+                                            {
+                                                "note": "Reward clear layout.",
+                                                "intensity": "blend",
+                                            }
+                                        ],
                                     },
                                 ],
                             }
@@ -433,9 +481,43 @@ class SchemaTests(unittest.TestCase):
         updated = merge_learned_calibration(task, learned)
         fields = task.parts[0].groups[0].fields
         self.assertEqual(updated, 1)
-        self.assertEqual(fields[0].calibration_special_case, "Teacher note stays.")
-        self.assertEqual(fields[1].calibration_special_case, "Reward clear layout.")
-        self.assertEqual(fields[1].calibration_intensity, CalibrationIntensity.blend)
+        self.assertEqual(fields[0].calibration_notes[0].note, "Teacher note stays.")
+        self.assertEqual(fields[1].calibration_notes[0].note, "Reward clear layout.")
+        self.assertEqual(fields[1].calibration_notes[0].intensity, CalibrationIntensity.blend)
+
+    def test_multiple_calibration_notes_render(self) -> None:
+        task = TaskSchema.model_validate(
+            {
+                "template": False,
+                "parts": [
+                    {
+                        "heading": "Poster",
+                        "groups": [
+                            {
+                                "heading": "Visual",
+                                "fields": [
+                                    {
+                                        "question": "Layout",
+                                        "student_answer": "Blue poster with title.",
+                                        "calibration_notes": [
+                                            {"note": "Poster baseline is 4.", "intensity": "blend"},
+                                            {"note": "Raise above 4 when descriptors match.", "intensity": "blend"},
+                                        ],
+                                    }
+                                ],
+                            }
+                        ],
+                    }
+                ],
+                "comment": {
+                    "overall": {"heading": "Overall achievement"},
+                    "strands": [{"heading": "Strand i"}],
+                },
+            }
+        )
+        comparison = render_comparison(task, include_grading_details=True)
+        self.assertIn("calibration note 1: Poster baseline is 4.", comparison)
+        self.assertIn("calibration note 2: Raise above 4 when descriptors match.", comparison)
 
     def test_token_usage_rollup(self) -> None:
         self.assertEqual(

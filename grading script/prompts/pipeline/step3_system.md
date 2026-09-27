@@ -6,14 +6,16 @@ Template wording is the worksheet, not evidence. Do not raise a score because th
 
 Scores are integers from 0 to 8. Band 0 means the work does not reach a descriptor. Use the rubric strands and command terms. The overall score is holistic and is also from 0 to 8.
 
-Apply calibration_special_case on a field this way:
-- override: the special case replaces the rubric for that field.
-- blend: apply the rubric and the special case together.
-- tiny_effect: the rubric sets the band; the special case may change the wording only.
-- An empty special case means the rubric only.
-- A non-empty special case with no intensity is blend.
+Apply calibration_notes on a field this way. A field may have several notes; apply every note that has text.
+- override: the note replaces the rubric for that field.
+- blend: apply the rubric and the note together.
+- tiny_effect: the rubric sets the band; the note may change the wording only.
+- No notes on a field means the rubric only.
+- A note with no intensity is blend.
 
 Use the comment headings below exactly, in the same order. Do not add, rename, or drop a heading. Leave max_score unchanged. Fill score and text for the overall slot and each strand. Fill strengths and improvements.
+
+{{COMMENT_LENGTH_RULES}}
 
 VISUAL RELATED SUBMISSION: {{VISUAL_RELATED}}
 When this is true, judge visual engagement from the layout, colors, images, and composition described in student_answer. When this is false, do not score visual appearance.

@@ -1,5 +1,5 @@
 {
-  "grading_sample_reference": "",
+  "grading_sample_reference": "/Users/willieliao/工作/JCID/Grading/grading_assistant/E6/E6_sample",
   "template": false,
   "title": "Values Poster",
   "parts": [
@@ -32,8 +32,7 @@
               "columns": [],
               "optional": false,
               "repeatable": false,
-              "calibration_special_case": "",
-              "calibration_intensity": null,
+              "calibration_notes": [],
               "word_count": null
             }
           ]
@@ -51,8 +50,24 @@
               "columns": [],
               "optional": false,
               "repeatable": false,
-              "calibration_special_case": "",
-              "calibration_intensity": null,
+              "calibration_notes": [
+                {
+                  "note": "Expect a clear definition of the chosen value in sports and physical activity and why it matters in PE, not only slogans or humor. Weak or missing definition or conceptual explanation limits the band; stronger grounding supports higher bands.",
+                  "intensity": "blend"
+                },
+                {
+                  "note": "If the poster lacks required wording or information (value definition, why it matters in PE, and the content the task expects on the poster), lower Content and overall achievement heavily, even when the layout looks like a poster.",
+                  "intensity": "blend"
+                },
+                {
+                  "note": "When the written content meets the rubric descriptors for defining the value and explaining it in sports and physical activity, raise the score.",
+                  "intensity": "blend"
+                },
+                {
+                  "note": "A poster that looks acceptable on the page but only meets minimum wording still relies on rubric fit to move above the developing level.",
+                  "intensity": "blend"
+                }
+              ],
               "word_count": null
             }
           ]
@@ -70,8 +85,24 @@
               "columns": [],
               "optional": false,
               "repeatable": false,
-              "calibration_special_case": "",
-              "calibration_intensity": null,
+              "calibration_notes": [
+                {
+                  "note": "Visual Presentation is basic: judge whether the work reads as a poster with visible layout and text on the page. Simple or plain design is acceptable.",
+                  "intensity": "blend"
+                },
+                {
+                  "note": "Do not raise Visual Presentation much for fonts, colors, decoration, or polish alone.",
+                  "intensity": "blend"
+                },
+                {
+                  "note": "If it reads as a poster with basic visuals and some on-page wording, Visual Presentation can sit around the developing level without strong design.",
+                  "intensity": "blend"
+                },
+                {
+                  "note": "Raise Visual above the developing level only when higher rubric descriptors for visual engagement are clearly met.",
+                  "intensity": "blend"
+                }
+              ],
               "word_count": null
             }
           ]
@@ -89,8 +120,24 @@
               "columns": [],
               "optional": false,
               "repeatable": false,
-              "calibration_special_case": "",
-              "calibration_intensity": null,
+              "calibration_notes": [
+                {
+                  "note": "Expect practical sports- or PE-specific examples that show the value in action. Vague or missing examples limit the band; several specific, relevant examples support higher bands.",
+                  "intensity": "blend"
+                },
+                {
+                  "note": "If required practical examples or value information is missing from the poster wording, lower Application and overall achievement heavily, even when the page looks like a poster.",
+                  "intensity": "blend"
+                },
+                {
+                  "note": "When practical sports- or PE-specific examples meet the rubric descriptors, raise the score.",
+                  "intensity": "blend"
+                },
+                {
+                  "note": "Meeting a basic poster look alone does not raise Application; stronger, specific examples move the score up.",
+                  "intensity": "blend"
+                }
+              ],
               "word_count": null
             }
           ]
@@ -99,6 +146,8 @@
     }
   ],
   "word_count": null,
+  "visual_related_submission": true,
+  "comment_length": "concise",
   "comment": {
     "overall": {
       "heading": "Overall achievement",
@@ -140,6 +189,5 @@
     ],
     "strengths": "",
     "improvements": ""
-  },
-  "visual_related_submission": true
+  }
 }

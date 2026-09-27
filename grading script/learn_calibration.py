@@ -33,7 +33,7 @@ CONTENT_FILE = "content.json"
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
-        description="Learn calibration_special_case values from graded sample folders."
+        description="Learn calibration_notes from graded sample folders."
     )
     parser.add_argument("--task-schema", required=True, help="Shared task_schema.json from step 1")
     parser.add_argument(
