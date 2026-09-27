@@ -1,0 +1,133 @@
+{
+  "assignment_overview": {
+    "task_summary": "Create an informative and visually engaging poster that explores the concept of one of the values (Sportsmanship, Participation, On-time and On-Task, Respect, Teamwork, or Standing Strong/Resilience) in the context of sports and physical activities. The poster will be displayed in the school's gymnasium.",
+    "criterion": "A",
+    "grade_or_year": "1",
+    "levels": []
+  },
+  "submission_requirements": [
+    {
+      "item": "Values Poster",
+      "applies_to_levels": [],
+      "detail": "Visually appealing and informative poster about one of the listed values, submitted on ManageBac by Sunday, September 22, 2024."
+    }
+  ],
+  "rubric_breakdown": {
+    "bands_share_core_descriptors": false,
+    "strands": [
+      {
+        "id": "i",
+        "name": "Content",
+        "bands": [
+          {
+            "band": "1-2",
+            "descriptor": "The poster includes minimal or incorrect information about \"Value\" in sports and physical activities. Key concepts and related concepts are not addressed."
+          },
+          {
+            "band": "3-4",
+            "descriptor": "The poster provides some accurate information about \"Value\" in sports and physical activities but lacks depth. Key concepts and related concepts are mentioned briefly."
+          },
+          {
+            "band": "5-6",
+            "descriptor": "The poster effectively conveys accurate information about \"Value\" in sports and physical activities. Key concepts and related concepts are clearly explained."
+          },
+          {
+            "band": "7-8",
+            "descriptor": "The poster demonstrates a deep understanding of \"Value\" in sports and physical activities. Key concepts and related concepts are explored in depth."
+          }
+        ]
+      },
+      {
+        "id": "ii",
+        "name": "Visual Presentation",
+        "bands": [
+          {
+            "band": "1-2",
+            "descriptor": "The poster is poorly organized, cluttered, and lacks visual appeal. Fonts, colors, and images are not used effectively."
+          },
+          {
+            "band": "3-4",
+            "descriptor": "The poster is somewhat organized and visually acceptable, but improvements could be made in terms of layout, fonts, colors, and images."
+          },
+          {
+            "band": "5-6",
+            "descriptor": "The poster is well-organized and visually appealing, with appropriate use of layout, fonts, colors, and images."
+          },
+          {
+            "band": "7-8",
+            "descriptor": "The poster is exceptionally organized and visually stunning, effectively using layout, fonts, colors, and images to engage the audience."
+          }
+        ]
+      },
+      {
+        "id": "iii",
+        "name": "Application of Value",
+        "bands": [
+          {
+            "band": "1-2",
+            "descriptor": "The poster does not provide practical examples or applications of \"Values\" in sports and physical activities."
+          },
+          {
+            "band": "3-4",
+            "descriptor": "The poster provides basic examples of how \"Values\" can be applied in sports and physical activities, but lacks depth."
+          },
+          {
+            "band": "5-6",
+            "descriptor": "The poster offers clear and practical examples of how \"Values\" can be applied effectively in sports and physical activities."
+          },
+          {
+            "band": "7-8",
+            "descriptor": "The poster presents comprehensive and innovative examples of how \"Values\" can be applied creatively and effectively in sports and physical activities."
+          }
+        ]
+      },
+      {
+        "id": "iv",
+        "name": "Creativity and Engagement",
+        "bands": [
+          {
+            "band": "1-2",
+            "descriptor": "The poster lacks creativity and fails to engage the audience."
+          },
+          {
+            "band": "3-4",
+            "descriptor": "The poster demonstrates some creativity but may not fully engage the audience."
+          },
+          {
+            "band": "5-6",
+            "descriptor": "The poster is creative and moderately engaging for the audience."
+          },
+          {
+            "band": "7-8",
+            "descriptor": "The poster is exceptionally creative and highly engaging for the audience."
+          }
+        ]
+      },
+      {
+        "id": "v",
+        "name": "Overall Presentation",
+        "bands": [
+          {
+            "band": "1-2",
+            "descriptor": "The poster falls short in delivering a clear message about the chosen value in sports and physical activities."
+          },
+          {
+            "band": "3-4",
+            "descriptor": "The poster is somewhat effective in delivering a clear message about the chosen value in sports and physical activities."
+          },
+          {
+            "band": "5-6",
+            "descriptor": "The poster effectively delivers a clear message about the chosen value in sports and physical activities."
+          },
+          {
+            "band": "7-8",
+            "descriptor": "The poster is outstanding in delivering a clear, compelling, and memorable message about the chosen value in sports and physical activities."
+          }
+        ]
+      }
+    ]
+  },
+  "level_specific_grading_notes": [],
+  "grader_checklist": [],
+  "red_flags": []
+}

@@ -1,0 +1,144 @@
+{
+  "template": false,
+  "title": "Values Poster",
+  "parts": [
+    {
+      "heading": "Values Poster",
+      "rubric_strand_ids": [
+        "i",
+        "ii",
+        "iii"
+      ],
+      "template_content": "",
+      "groups": [
+        {
+          "heading": "Value Selection",
+          "template_content": "",
+          "fields": [
+            {
+              "question": "Chosen Value",
+              "template_content": "",
+              "student_answer": "",
+              "answer_kind": "choice",
+              "choices": [
+                "Sportsmanship",
+                "Participation",
+                "On-time and On-Task",
+                "Respect",
+                "Teamwork",
+                "Standing Strong/Resilience"
+              ],
+              "columns": [],
+              "optional": false,
+              "repeatable": false,
+              "calibration_special_case": "",
+              "calibration_intensity": null,
+              "word_count": null
+            }
+          ]
+        },
+        {
+          "heading": "Content",
+          "template_content": "",
+          "fields": [
+            {
+              "question": "Description of the Value in Sports and Physical Activities",
+              "template_content": "",
+              "student_answer": "",
+              "answer_kind": "text",
+              "choices": [],
+              "columns": [],
+              "optional": false,
+              "repeatable": false,
+              "calibration_special_case": "",
+              "calibration_intensity": null,
+              "word_count": null
+            }
+          ]
+        },
+        {
+          "heading": "Visual Presentation",
+          "template_content": "",
+          "fields": [
+            {
+              "question": "Layout, Fonts, Colors, and Images",
+              "template_content": "",
+              "student_answer": "",
+              "answer_kind": "diagram",
+              "choices": [],
+              "columns": [],
+              "optional": false,
+              "repeatable": false,
+              "calibration_special_case": "",
+              "calibration_intensity": null,
+              "word_count": null
+            }
+          ]
+        },
+        {
+          "heading": "Application of Value",
+          "template_content": "",
+          "fields": [
+            {
+              "question": "Practical Examples of the Value in Sports and Physical Activities",
+              "template_content": "",
+              "student_answer": "",
+              "answer_kind": "list",
+              "choices": [],
+              "columns": [],
+              "optional": false,
+              "repeatable": false,
+              "calibration_special_case": "",
+              "calibration_intensity": null,
+              "word_count": null
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "word_count": null,
+  "comment": {
+    "overall": {
+      "heading": "Overall achievement",
+      "score": null,
+      "max_score": 8,
+      "text": ""
+    },
+    "strands": [
+      {
+        "heading": "Strand i: Content",
+        "score": null,
+        "max_score": 8,
+        "text": ""
+      },
+      {
+        "heading": "Strand ii: Visual Presentation",
+        "score": null,
+        "max_score": 8,
+        "text": ""
+      },
+      {
+        "heading": "Strand iii: Application of Value",
+        "score": null,
+        "max_score": 8,
+        "text": ""
+      },
+      {
+        "heading": "Strand iv: Creativity and Engagement",
+        "score": null,
+        "max_score": 8,
+        "text": ""
+      },
+      {
+        "heading": "Strand v: Overall Presentation",
+        "score": null,
+        "max_score": 8,
+        "text": ""
+      }
+    ],
+    "strengths": "",
+    "improvements": ""
+  },
+  "visual_related_submission": true
+}
